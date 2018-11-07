@@ -5,7 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
 #include "ifttt.h"
 
 int readSensor(char dir[]) {
@@ -14,12 +13,6 @@ int readSensor(char dir[]) {
 	char buf[101];
 	int t = 0;
 	int i;
-
-	char dir1[] = "/sys/bus/w1/devices/28-03184177f1ff/w1_slave";
-	printf("%s\n", dir);
-	printf("%s\n", dir1);
-	printf("%d %d\n", strlen(dir), strlen(dir1));
-	printf("%d\n", (strncmp(dir, dir1, 0)));
 
 	fd = fopen(dir, "r");
 
@@ -48,23 +41,17 @@ int readSensor(char dir[]) {
 	return t;
 }
 
-double showCelcius(int t) {
+void printCelcius(int t) {
 	double	celcius = (double) t / 1000;
-	printf("%d\n%.3f\n", t, celcius);
-
-	return celcius;
+	printf("%.3f Celcius\n", celcius);
 }
 
 int main(int argc, char *argv[]) {
 
-	int tOld;
-	int t;
-	int highest;
-	int lowest;
+	int tOld, t, highest, lowest;
+	char *t_ptr[10], *h_ptr[10], l_ptr[10];
 	char dir[100] = "/sys/bus/w1/devices/";
 	char dir2[] = "/w1_slave";
-
-	/*strcat(dir, "/sys/bus/w1/devices/");*/
 
 	if (argc != 2) {
 		printf("Usage: program sensor_serial_number\n");
@@ -74,30 +61,38 @@ int main(int argc, char *argv[]) {
 	strcat(dir, argv[1]);
 	strcat(dir, dir2);
 
-	t = readSensor(dir);
-	ifttt("https://maker.ifttt.com/trigger/celcius_change/with/key/x9XnvGbgm0kq1KFLFBCyZ", "temperature", "1st", "hi");
+	tOld = readSensor(dir);
+	highest = tOld;
+	lowest = tOld;
+	printf("Initial temperature reading: ");
+	printCelcius(tOld);
 	printf("Sending email via ifttt server.\n");
-	highest = t;
-	lowest = t;
 
 	while (1) {
-		tOld = t;
 		t = readSensor(dir);
-		showCelcius(t);
-
 		if (t > highest) {
 			highest = t;
+			printCelcius(t);
 		} else if (t < lowest) {
 			lowest = t;
+			printCelcius(t);
+		} else {
+			printCelcius(t);
 		}
 
-		if (t - tOld > 1000 || t - tOld < 1000) {
-			ifttt("https://maker.ifttt.com/trigger/celcius_change/with/key/x9XnvGbgm0kq1KFLFBCyZ", "", "", "");
+		if (t - tOld > 1000 || t - tOld < -1000) {
+			tOld = t;
+			printf("Temperature change exceeds 1 Celcius since last message.\n");
+			printf("Current temperature: ");
+			printCelcius(t);
+			printf("Highest temperature: ");
+			printCelcius(highest);
+			printf("Lowest temperature: ");
+			printCelcius(lowest);
 			printf("Sending email via ifttt server.\n");
 		}
 
-		sleep(3);
-	}
+		}
 
 
 	return 0;
