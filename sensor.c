@@ -7,6 +7,9 @@
 #include <math.h>
 #include "ifttt.h"
 
+char *setDir(char serial[], char dir[]) {
+}
+
 int readSensor(char dir[]) {
 	FILE *fd;
 	int n;
@@ -46,27 +49,40 @@ void printCelcius(int t) {
 	printf("%.3f Celcius\n", celcius);
 }
 
-int main(int argc, char *argv[]) {
+char *statement(int t, int n, char s[]) {
+	double celcius = (double) t / 1000;
 
-	int tOld, t, highest, lowest;
-	char *t_ptr[10], *h_ptr[10], l_ptr[10];
-	char dir[100] = "/sys/bus/w1/devices/";
-	char dir2[] = "/w1_slave";
-
-	if (argc != 2) {
-		printf("Usage: program sensor_serial_number\n");
-		return 0;
+	if (n == 0) {
+		sprintf(s, "Initial temperature: %.3f Celcius", celcius);
+	} else if (n == 1) {
+		sprintf(s, "Current temperature: %.3f Celcius", celcius);
+	} else	if (n == 2) {
+		sprintf(s, "Highest temperature: %.3f Celcius", celcius);
+	} else if (n == 3) {
+		sprintf(s, "Lowest temperature: %.3f Celcius", celcius);
 	}
 
-	strcat(dir, argv[1]);
-	strcat(dir, dir2);
+	return s;
+}
 
-	tOld = readSensor(dir);
+int initialTemp(char dir[]) {
+	int tInit = readSensor(dir);
+	char i_s[50];
+
+	printf("%s\n",statement(tInit, 0, i_s));
+	printf("Sending email via ifttt server.\n");
+	ifttt("https://maker.ifttt.com/trigger/temperature_sensor/with/key/x9XnvGbgm0kq1KFLFBCyZ", statement(tInit, 0, i_s) , "", "");
+
+	return tInit;
+}
+
+void outputTemp(char dir[]) {
+	int tOld, t, highest, lowest;
+	char t_s[50], h_s[50], l_s[50];
+
+	tOld = initialTemp(dir);
 	highest = tOld;
 	lowest = tOld;
-	printf("Initial temperature reading: ");
-	printCelcius(tOld);
-	printf("Sending email via ifttt server.\n");
 
 	while (1) {
 		t = readSensor(dir);
@@ -83,17 +99,28 @@ int main(int argc, char *argv[]) {
 		if (t - tOld > 1000 || t - tOld < -1000) {
 			tOld = t;
 			printf("Temperature change exceeds 1 Celcius since last message.\n");
-			printf("Current temperature: ");
-			printCelcius(t);
-			printf("Highest temperature: ");
-			printCelcius(highest);
-			printf("Lowest temperature: ");
-			printCelcius(lowest);
+			printf("%s\n%s\n%s\n", statement(t, 1, t_s), statement(highest, 2, h_s), statement(lowest, 3, l_s));
 			printf("Sending email via ifttt server.\n");
+			ifttt("https://maker.ifttt.com/trigger/temperature_sensor/with/key/x9XnvGbgm0kq1KFLFBCyZ", statement(t, 1, t_s) , statement(highest, 2, h_s), statement(lowest, 3, l_s));
 		}
 
-		}
+	}
+}
 
+int main(int argc, char *argv[]) {
+	char dir[100] = "/sys/bus/w1/devices/";
+	char dir2[] = "/w1_slave";
+	char *t_ptr[10], *h_ptr[10], l_ptr[10];
+
+	if (argc != 2) {
+		printf("Usage: program sensor_serial_number\n");
+		return 0;
+	}
+
+	strcat(dir, argv[1]);
+	strcat(dir, dir2);
+
+	outputTemp(dir);
 
 	return 0;
 }
